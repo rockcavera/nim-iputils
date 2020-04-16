@@ -16,7 +16,7 @@ proc parseIpv4*(ip: string): Ipv4 =
     try:
       let bytePart = parseUInt(b)
 
-      if bytePart > 255:
+      if bytePart > 255'u:
         raise newException(ValueError, "Invalid IPv4.")
 
       result[x] = uint8(bytePart)

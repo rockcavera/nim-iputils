@@ -147,7 +147,7 @@ template cidrToRange() =
     prefix = cidr.prefix
 
   while true:
-    if 0 == prefix:
+    if 0'u8 == prefix:
       for i in countdown(x, 0):
         result.startIp[i] = 0'u8
 
