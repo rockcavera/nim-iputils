@@ -25,3 +25,14 @@ proc toHex*(x: SomeInteger, fill = false): string =
   
   else:
     return result[(y + 1) .. 3]
+
+template cmpx*(x: int) =
+    if a[x] == b[x]:
+      when x == 0:
+        return 0
+      else:
+        cmpx(x - 1)
+    elif a[x] < b[x]:
+      return -1
+    else:
+      return 1

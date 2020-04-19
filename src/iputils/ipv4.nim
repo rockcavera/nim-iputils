@@ -1,4 +1,6 @@
-import strutils
+import std/strutils
+
+import ./private/utils
 
 type
   Ipv4* = array[4, uint8]
@@ -60,3 +62,10 @@ proc ipv4ToString*(ip: Ipv4): string =
 
 proc `$`*(ip: Ipv4): string =
   ipv4ToString(ip)
+
+proc cmp*(a, b: Ipv4): int =
+  ## Compares IPv4 ``a`` with ``b`` and returns:
+  ## * ``0``, if ``a`` is equal to ``b``;
+  ## * ``1``, if ``a`` is greater than ``b``; or
+  ## * ``-1``, if ``a`` is less than ``b``.
+  cmpx(3)

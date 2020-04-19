@@ -1,5 +1,6 @@
-import strutils
-import utils
+import std/strutils
+
+import ./private/utils
 
 type
   Ipv6* = array[16, uint8]
@@ -186,3 +187,10 @@ proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = ipv6ModeStandart): string =
 
 proc `$`*(ip: Ipv6): string =
   ipv6ToString(ip)
+
+proc cmp*(a, b: Ipv6): int =
+  ## Compares IPv6 ``a`` with ``b`` and returns:
+  ## * ``0``, if ``a`` is equal to ``b``;
+  ## * ``1``, if ``a`` is greater than ``b``; or
+  ## * ``-1``, if ``a`` is less than ``b``.
+  cmpx(15)

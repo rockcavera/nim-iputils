@@ -1,7 +1,7 @@
 import std/bitops
 
-import ipv6
-import ipv4
+import ./ipv6
+import ./ipv4
 
 type
   Cidr4* = object
