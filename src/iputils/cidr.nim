@@ -1,7 +1,8 @@
+# Std imports
 import std/bitops
 
-import ./ipv6
-import ./ipv4
+# Internal imports
+import ./ipv4, ./ipv6
 
 type
   Cidr4* = object
@@ -12,7 +13,7 @@ type
     ip*: Ipv6
     prefix*: range[0'u8 .. 128'u8]
 
-proc rangeToCidr8[T: Cidr4|Cidr6](a, b: uint8, x = 0): seq[T] =
+proc rangeToCidr8[T: Cidr4|Cidr6](a, b: uint8, x: int): seq[T] =
   var
     a = int(a)
     b = int(b)
@@ -50,11 +51,11 @@ template rangeToCidr(T: typedesc[Cidr4|Cidr6]) =
   var
     a = startIp[x]
     b = endIp[x]
+  
+  if iLimit == x:
+    return rangeToCidr8[T](a, b, iLimit)
 
-  if 0 == x:
-    return rangeToCidr8[T](a, b)
-
-  let y = x - 1
+  let y = x + 1
 
   if a == b:
     when sizeof(T) == 5:
@@ -73,13 +74,13 @@ template rangeToCidr(T: typedesc[Cidr4|Cidr6]) =
     start0 = true
     end255 = true
   
-  for i in countdown(y, 0):
+  for i in countup(y, iLimit):
     if 0'u8 != startIp[i]:
       start0 = false
       
       break
   
-  for i in countdown(y, 0):
+  for i in countup(y, iLimit):
     if 255'u8 != endIp[i]:
       end255 = false
 
@@ -88,7 +89,7 @@ template rangeToCidr(T: typedesc[Cidr4|Cidr6]) =
   if not(start0):
     var endIp255: typeof(endIp)
 
-    for i in countdown(y, 0):
+    for i in countup(y, iLimit):
       endIp255[i] = 255'u8
     
     when sizeof(T) == 5:
@@ -106,7 +107,7 @@ template rangeToCidr(T: typedesc[Cidr4|Cidr6]) =
   if not(end255):
     var startIp0: typeof(startIp)
 
-    for i in countdown(y, 0):
+    for i in countup(y, iLimit):
       startIp0[i] = 0'u8
     
     when sizeof(T) == 5:
@@ -126,15 +127,18 @@ template rangeToCidr(T: typedesc[Cidr4|Cidr6]) =
   if a <= b:
     add(result, rangeToCidr8[T](a, b, x))
 
+proc ipv4RangeToCidrHelp(startIp, endIp: Ipv4, x = 0): seq[Cidr4] =
+  const iLimit = 3
 
-proc ipv4RangeToCidrHelp(startIp, endIp: Ipv4, x = 3): seq[Cidr4] =
   rangeToCidr(Cidr4)
 
 proc ipv4RangeToCidr*(startIp, endIp: Ipv4): seq[Cidr4] =
   ## Returns a ``seq[Cidr4]`` with the CIDR blocks resulting from the IPv4 interval between ``startIp`` and ``endIp``.
   ipv4RangeToCidrHelp(startIp, endIp)
 
-proc ipv6RangeToCidrHelp(startIp, endIp: Ipv6, x = 15): seq[Cidr6] =
+proc ipv6RangeToCidrHelp(startIp, endIp: Ipv6, x = 0): seq[Cidr6] =
+  const iLimit = 15
+
   rangeToCidr(Cidr6)
 
 proc ipv6RangeToCidr*(startIp, endIp: Ipv6): seq[Cidr6] =
@@ -143,12 +147,13 @@ proc ipv6RangeToCidr*(startIp, endIp: Ipv6): seq[Cidr6] =
 
 template cidrToRange() =
   var
+    x = 0
     ip = cidr.ip
     prefix = cidr.prefix
 
   while true:
     if 0'u8 == prefix:
-      for i in countdown(x, 0):
+      for i in countup(x, iLimit):
         result.startIp[i] = 0'u8
 
         result.endIp[i] = 255'u8
@@ -162,11 +167,11 @@ template cidrToRange() =
 
       dec(prefix, 8)
 
-      dec(x)
+      inc(x)
 
       continue
 
-    for i in countdown(x, 0):
+    for i in countup(x, iLimit):
       result.startIp[i] = 0'u8
 
       result.endIp[i] = 255'u8
@@ -181,30 +186,32 @@ template cidrToRange() =
 
 proc cidrToIpv4Range*(cidr: Cidr4): tuple[startIp, endIp: Ipv4] =
   ## Returns a tuple with the ``startIp`` and ``endIp`` range of a CIDR block.
-  var x = 3
+  const iLimit = 3
 
   cidrToRange()
 
 proc cidrToIpv6Range*(cidr: Cidr6): tuple[startIp, endIp: Ipv6] =
   ## Returns a tuple with the ``startIp`` and ``endIp`` range of a CIDR block.
-  var x = 15
+  const iLimit = 15
   
   cidrToRange()
 
 template listAllCidrContainIp(h: uint8) =
-  var
-    ip = ip
-    x = 0
+  var ip = ip
 
   for prefix in countdown(h, 0'u8):
-    clearBit(ip[x div 8], x mod 8)
+    clearBit(ip[prefix div 8], 7'u8 - (prefix mod 8))
 
     when 4 == sizeof(ip):
-      add(result, Cidr4(ip: ip, prefix: prefix))
+      when declared(result):
+        add(result, Cidr4(ip: ip, prefix: prefix))
+      else:
+        yield Cidr4(ip: ip, prefix: prefix)
     elif 16 == sizeof(ip):
-      add(result, Cidr6(ip: ip, prefix: prefix))
-
-    inc(x)
+      when declared(result):
+        add(result, Cidr6(ip: ip, prefix: prefix))
+      else:
+        yield Cidr6(ip: ip, prefix: prefix)
 
 proc listAllCidrContainIpv4*(ip: Ipv4): seq[Cidr4] =
   ## Returns a ``seq[Cidr4]`` with all 33 CIDR blocks containing the ``ip``.
@@ -221,10 +228,14 @@ proc listAllCidrContainIpv6*(ip: Ipv6): seq[Cidr6] =
 proc cidrToString*(cidr: Cidr4|Cidr6): string =
   ## Returns an CIDR textual representation of ``cidr``.
   when 5 == sizeof(cidr):
+    result = newStringOfCap(18)
+
     add(result, ipv4ToString(cidr.ip))
     add(result, "/")
     add(result, $cidr.prefix)
   elif 17 == sizeof(cidr):
+    result = newStringOfCap(49)
+
     add(result, ipv6ToString(cidr.ip))
     add(result, "/")
     add(result, $cidr.prefix)
@@ -232,29 +243,14 @@ proc cidrToString*(cidr: Cidr4|Cidr6): string =
 proc `$`*(cidr: Cidr4|Cidr6): string =
   cidrToString(cidr)
 
-template cidrContainIp(h: uint8) =
-  var
-    ip = ip
-    x = 0
-
-  for prefix in countdown(h, 0'u8):
-    clearBit(ip[x div 8], x mod 8)
-
-    when 4 == sizeof(ip):
-      yield Cidr4(ip: ip, prefix: prefix)
-    elif 16 == sizeof(ip):
-      yield Cidr6(ip: ip, prefix: prefix)
-
-    inc(x)
-
 iterator cidrContainIpv4*(ip: Ipv4): Cidr4 =
   ## Iterate over all 33 CIDR blocks containing the ``ip``.
   yield Cidr4(ip: ip, prefix: 32'u8)
 
-  cidrContainIp(31'u8)
+  listAllCidrContainIp(31'u8)
 
 iterator cidrContainIpv6*(ip: Ipv6): Cidr6 =
   ## Iterate over all 129 CIDR blocks containing the ``ip``.
   yield Cidr6(ip: ip, prefix: 128'u8)
 
-  cidrContainIp(127'u8)
+  listAllCidrContainIp(127'u8)

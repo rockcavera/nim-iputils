@@ -1,94 +1,195 @@
+# Std imports
 import std/strutils
-
-import ./private/utils
 
 type
   Ipv6* = array[16, uint8]
 
   Ipv6Mode* = enum ## IPv6 textual representation modes.
-    Ipv6Normal = 0 ## Normal mode. There is no omission of groups, but there is the removal of leading zeros.
-    Ipv6Compress = 1 ## Compressed mode. Removes the largest possible chain of zeros.
-    Ipv6Expand = 2 ## Expanded mode. All 8 groups have 4 hexadecimal digits.
+    Ipv6Compressed = 0 ## Compressed mode. Removes the largest possible chain of zeros. According to https://tools.ietf.org/html/rfc5952#section-4
+    Ipv6LeadingZeros = 1 ## Leading zeros removed mode. There is no omission of groups, but there is the removal of leading zeros.
+    Ipv6Expanded = 2 ## Expanded mode. All 8 groups have 4 hexadecimal digits.
 
-var ipv6ModeStandart* = Ipv6Compress ## Sets the standard textual representation for IPv6.
+when defined(UseStdNetParseIpAddress):
+  import std/net
 
-proc parseIpv6*(ip: string): Ipv6 =
-  ## Parses a IPv6 value contained in ``ip``.
-  template testInvalidAndOverflow(x) =
-    try:
-      let part = fromHex[uint](parts[x])
+  proc parseIpv6*(ip: string): Ipv6 =
+    ## Parses a IPv6 value contained in ``ip``.
+    let r = parseIpAddress(ip)
 
-      if part > 65535'u:
-        raise newException(ValueError, "Invalid IPv6.")
-
-      let b = 15 - (x * 2)
-
-      result[b] = uint8(part shr 8)
-      result[b - 1] = uint8(part and 0xFF)
-
-    except:
+    if r.family == IpAddressFamily.IPv4:
       raise newException(ValueError, "Invalid IPv6.")
 
-  let
-    parts = split(ip, ':')
-    h = high(parts)
+    result = r.address_v6
 
-  if h > 7:
-    raise newException(ValueError, "Invalid IPv6.")
+else:
+  proc parseIpv6*(ip: string): Ipv6 =
+    ## Parses a IPv6 value contained in ``ip``. According to https://tools.ietf.org/html/rfc4291
+    let ipLength = len(ip)
 
-  if h < 2:
-    raise newException(ValueError, "Invalid IPv6.")
+    if ipLength < 2 or ipLength > 45:
+      raise newException(ValueError, "Invalid IPv6.")
 
-  var
-    nullParts = 0
-    nullIndex = 0
-
-  for i in 1 ..< h:
-    if "" == parts[i]:
-      nullIndex = i
-
-      inc(nullParts)
-
-      if nullParts > 1:
-        raise newException(ValueError, "Invalid IPv6.")
+    var
+      a = 0
+      b = 0
+      x = 0
+      i = 0
+      iNullPart = -1
     
-    else:
-      testInvalidAndOverflow(i)
+    block outMainLoop:
+      while a < ipLength:
+        let c = ip[a]
+
+        case c
+        of {'0' .. '9'}:
+          b = b shl 4 or (ord(c) - ord('0'))
+
+          inc(x)
+        of {'A' .. 'F'}:
+          b = b shl 4 or (ord(c) - ord('A') + 10)
+
+          inc(x)
+        of {'a' .. 'f'}:
+          b = b shl 4 or (ord(c) - ord('a') + 10)
+
+          inc(x)
+        of ':':
+          if 0 == x:
+            if 0 != a:
+              if iNullPart > -1:
+                raise newException(ValueError, "Invalid IPv6.")
+              else:
+                iNullPart = i
+                
+                if a == (ipLength - 1):
+                  inc(a)
+                  
+                  break
+            elif ':' == ip[1]:
+              iNullPart = i
+
+              inc(a)
+            else:
+              raise newException(ValueError, "Invalid IPv6.")
+
+            inc(i, 2)
+          else:
+            result[i] = uint8((b and 65280) shr 8)
+
+            inc(i)
+
+            result[i] = uint8(b and 255)
+
+            inc(i)
+
+            b = 0
+            x = 0
+
+          inc(a)
+        
+          if i > 14:
+            raise newException(ValueError, "Invalid IPv6.")
+
+          continue
+        of '.':
+          if 0 == x or b > 597 or i < 2:
+            raise newException(ValueError, "Invalid IPv6.")
+          
+          if b > 9:
+            b = ((((b and 768) shr 8) * 10) + ((b and 240) shr 4)) * 10 + (b and 15)
+          
+          result[i] = uint8(b)
+
+          inc(i)
+          inc(a)
+
+          b = 0
+          x = 0
+
+          var ipv4Parts = 1
+
+          while a < ipLength:
+            let c2 = ip[a]
+
+            case c2
+            of {'0' .. '9'}:
+              b = b * 10 + (ord(c2) - ord('0'))
+
+              inc(x) 
+            of '.':
+              if x == 0 or b > 255:
+                raise newException(ValueError, "Invalid IPv4.")
+
+              result[i] = uint8(b)
+
+              inc(i)
+              inc(ipv4Parts)
+
+              b = 0
+              x = 0
+
+              if i > 15:
+                raise newException(ValueError, "Invalid IPv4.")
+            else:
+              raise newException(ValueError, "Invalid IPv4.")
+
+            inc(a)
+          
+          if ipv4Parts != 3 or x == 0 or b > 255:
+            raise newException(ValueError, "Invalid IPv4.")
+
+          result[i] = uint8(b)
+
+          inc(i)
+          
+          break outMainLoop
+
+        else:
+          raise newException(ValueError, "Invalid IPv6.")
+
+        if x > 4:
+          raise newException(ValueError, "Invalid IPv6.")
+
+        inc(a)
     
-  if 7 != h and nullParts != 1:
-    raise newException(ValueError, "Invalid IPv6.")
-
-  if "" == parts[0]:
-    if nullIndex != 1:
-      raise newException(ValueError, "Invalid IPv6.")
-  
-  else:
-    testInvalidAndOverflow(0)
-
-  if "" == parts[h]:
-    if nullIndex != (high(parts) - 1):
-      raise newException(ValueError, "Invalid IPv6.")
-
-  else:
-    testInvalidAndOverflow(h)
-  
-  var b = 15 - (len(parts) * 2)
-  
-  if b > -1:
-    inc(b)
-
-    var p = 0
-
-    while 0'u8 != result[b] or 0'u8 != result[b + 1]:
-      swap(result[p], result[b])
+      if 0 == x:
+        if iNullPart > -1 and ':' == ip[a - 2]:
+          inc(i, 2)
+        else:
+          raise newException(ValueError, "Invalid IPv6.")
       
-      inc(p)
-      inc(b)
-      
-      swap(result[p], result[b])
+      else:
+        result[i] = uint8((b and 65280) shr 8)
 
-      inc(p)
-      inc(b)
+        inc(i)
+
+        result[i] = uint8(b and 255)
+
+        inc(i)
+    
+    if i > 16:
+      raise newException(ValueError, "Invalid IPv6.")
+    elif i < 16:
+      if iNullPart > -1:
+        if i < 4:
+          raise newException(ValueError, "Invalid IPv6.")
+        elif 0 != x:
+          a = i - 1
+          i = 15
+
+          while a > iNullPart:
+            swap(result[a], result[i])
+
+            dec(a)
+            dec(i)
+
+            swap(result[a], result[i])
+
+            dec(a)
+            dec(i)
+
+      else:
+        raise newException(ValueError, "Invalid IPv6.")
 
 proc isIpv6AndStore*(ip: string, stored: var Ipv6): bool =
   ## Returns ``true`` if the value of ``ip`` is a valid IPv6 and store the value into ``stored``.
@@ -113,77 +214,106 @@ proc isIpv6*(ip: string): bool =
 #proc uint128ToIpv6*(ip: uint128): Ipv6 {.inline.} =
 #  cast[Ipv6](ip)
 
-proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = ipv6ModeStandart): string =
+proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = Ipv6Compressed): string =
   ## Returns an expanded IPv6 textual representation of ``ip``.
+  const hexDigits = "0123456789abcdef"
+
+  result = newStringOfCap(45)
+
   case mode
-  of Ipv6Normal:
-    for i in countdown(15, 3, 2):
-      add(result, toHex((uint16(ip[i]) shl 8) or uint8(ip[i - 1])))
-      add(result, ":")
-    
-    add(result, toHex((uint16(ip[1]) shl 8) or uint8(ip[0])))
-  
-  of Ipv6Compress:
+  of Ipv6Compressed:
     var
-      hexs = newSeqOfCap[string](8)
-      bestNull = (i: -1, e: -1, q: 0)
-      x = 0
-      null = (i: 0, e: 0, q: 0)
+      groupZeros = (ii: -1, fi: -1, count: 0)
+      bestGroupZeros = (ii: -1, fi: -1, count: 0)
 
-    for i in countdown(15, 1, 2):
-      let hex = toHex((uint16(ip[i]) shl 8) or uint8(ip[i - 1]))
+    for i in countup(0, 14, 2):
+      let group = (uint16(ip[i]) shl 8) or uint16(ip[i + 1])
 
-      if "0" == hex:
-        add(hexs, "0")
+      if 0'u16 == group:
+        add(result, '0')
 
-        if 0 == null.q:
-          null.i = x
-
-        inc(null.q)
-
-      else:
-        add(hexs, hex)
-
-        if 1 < null.q:
-          if bestNull.q < null.q:
-            bestNull = null
-
-            bestNull.e = x - 1
-          
-          null = (i: 0, e: 0, q: 0)
-      
-      inc(x)
-    
-    if 1 < null.q and bestNull.q < null.q:
-      bestNull = null
-
-      bestNull.e = x - 1
-    
-    if 0 == bestNull.i:
-      add(result, ':')
-    else:
-      add(result, hexs[0])
-      
-
-    for i in 1 .. 7:
-      if i == bestNull.i:
-        add(result, ':')
-      elif i == bestNull.e:
-        add(result, ':')
-      elif i > bestNull.i and i < bestNull.e:
-        continue
-      else:
-        if ':' != result[^1]:
-          add(result, ':')
+        if -1 == groupZeros.ii:
+          groupZeros.ii = high(result)
         
-        add(result, hexs[i])
+        inc(groupZeros.count)
+      else:
+        groupZeros = (ii: -1, fi: -1, count: 0)
 
-  of Ipv6Expand:
-    for i in countdown(15, 3, 2):
-      add(result, toHex((uint16(ip[i]) shl 8) or uint8(ip[i - 1]), true))
-      add(result, ":")
+        var
+          leadingZeros = true
+          mask = 61440'u16
+
+        for i in countdown(3,0):
+          let fourBits = (group and mask) shr (i * 4)
+
+          if fourBits == 0'u16:
+            if false == leadingZeros:
+              add(result, '0')
+          else:
+            add(result, hexDigits[fourBits])
+            leadingZeros = false
+
+          mask = mask shr 4
+      
+      if i < 14:
+        add(result, ':')
+      
+      if groupZeros.count > bestGroupZeros.count:
+        groupZeros.fi = high(result)
+        bestGroupZeros = groupZeros
     
-    add(result, toHex((uint16(ip[1]) shl 8) or uint8(ip[0]), true))
+    if 8 == bestGroupZeros.count:
+      result = "::"
+    elif bestGroupZeros.count > 1:
+      
+      if bestGroupZeros.ii == 0:
+        result[0] = ':'
+
+        delete(result, 1, bestGroupZeros.fi - 1)
+      else:
+        result[bestGroupZeros.ii] = ':'
+
+        delete(result, bestGroupZeros.ii + 1, bestGroupZeros.fi)
+  
+  of Ipv6LeadingZeros:
+    for i in countup(0, 14, 2):
+      let group = (uint16(ip[i]) shl 8) or uint16(ip[i + 1])
+
+      if 0'u16 == group:
+        add(result, '0')
+      else:
+        var
+          leadingZeros = true
+          mask = 61440'u16
+
+        for i in countdown(3,0):
+          let fourBits = (group and mask) shr (i * 4)
+
+          if fourBits == 0'u16:
+            if false == leadingZeros:
+              add(result, '0')
+          else:
+            add(result, hexDigits[fourBits])
+            leadingZeros = false
+
+          mask = mask shr 4
+      
+      if i < 14:
+        add(result, ':')
+
+  of Ipv6Expanded:
+    for i in countup(0, 14, 2):
+      let group = (uint16(ip[i]) shl 8) or uint16(ip[i + 1])
+
+      var mask = 61440'u16
+
+      for i in countdown(3,0):
+        add(result, hexDigits[(group and mask) shr (i * 4)])
+
+        mask = mask shr 4
+      
+      if i < 14:
+        add(result, ':')
 
 proc `$`*(ip: Ipv6): string =
   ipv6ToString(ip)
@@ -193,4 +323,11 @@ proc cmp*(a, b: Ipv6): int =
   ## * ``0``, if ``a`` is equal to ``b``;
   ## * ``1``, if ``a`` is greater than ``b``; or
   ## * ``-1``, if ``a`` is less than ``b``.
-  cmpx(15)
+  for i in 0 .. 15:
+    if a[i] == b[i]:
+      continue
+    elif a[i] < b[i]:
+      return -1
+    else:
+      return 1
+  return 0

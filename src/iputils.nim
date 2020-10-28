@@ -63,6 +63,7 @@
 ##   
 ##     echo cidr, " contains IPv6 between ", i, " - ", e
 
-import iputils/[ipv4, ipv6, cidr]
+# Internal imports
+import ./iputils/[ipv4, ipv6, cidr]
 
 export ipv4, ipv6, cidr
