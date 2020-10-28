@@ -68,3 +68,6 @@ for cidr in cidrs6:
 
   echo cidr, " contains IPv6 between ", i, " - ", e
 ```
+
+# Documentation
+[https://rockcavera.github.io/nim-iputils/theindex.html](https://rockcavera.github.io/nim-iputils/theindex.html "https://rockcavera.github.io/nim-iputils/theindex.html")
