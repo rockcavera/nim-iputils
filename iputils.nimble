@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.0"
+version       = "0.2.1"
 author        = "rockcavera"
 description   = "Utilities for use with IP. It has functions for IPv4, IPv6 and CIDR."
 license       = "MIT"

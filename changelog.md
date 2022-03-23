@@ -1,5 +1,8 @@
+# v0.2.1 - 2022-03-22
+- Added `iputils.cidr.contains()` to check if a given `ip` (IPv4 or IPv6) is in a `cidr` (Cidr4 or Cidr6).
+
 # v0.2.0 - 2020-10-28
-- You can define when compiling UseStdNetParseIpAddress (`-d:UseStdNetParseIpAddress`) to use std/net.parseIpAddres() as a parser for `iputils.ipv4.parseIpv4()` and `iputils.ipv6.parseIpv6()`.
+- You can define when compiling UseStdNetParseIpAddress (`-d:UseStdNetParseIpAddress`) to use `std.net.parseIpAddres()` as a parser for `iputils.ipv4.parseIpv4()` and `iputils.ipv6.parseIpv6()`.
 
 - `iputils.private.utils` removed.
 

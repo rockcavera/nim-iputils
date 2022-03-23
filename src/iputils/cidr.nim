@@ -254,3 +254,19 @@ iterator cidrContainIpv6*(ip: Ipv6): Cidr6 =
   yield Cidr6(ip: ip, prefix: 128'u8)
 
   listAllCidrContainIp(127'u8)
+
+proc contains*(cidr: Cidr4, ip: Ipv4): bool =
+  ## Returns `true` if `ip` is in `cidr` or `false` if not.
+  let
+    (startIp, endIp) = cidrToIpv4Range(cidr)
+    cmpStart = cmp(startIp, ip)
+
+  cmpStart == 0 or (cmpStart == -1 and cmp(endIp, ip) > -1)
+
+proc contains*(cidr: Cidr6, ip: Ipv6): bool =
+  ## Returns `true` if `ip` is in `cidr` or `false` if not.
+  let
+    (startIp, endIp) = cidrToIpv6Range(cidr)
+    cmpStart = cmp(startIp, ip)
+
+  cmpStart == 0 or (cmpStart == -1 and cmp(endIp, ip) > -1)
