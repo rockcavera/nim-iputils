@@ -30,7 +30,7 @@ suite "IPv6 tests":
     check parseIpv6("::ffff:0:255.255.255.255") == Ipv6([0'u8, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 255, 255, 255, 255])
     check parseIpv6("2001:db8:3:4::192.0.2.33") == Ipv6([32'u8, 1, 13, 184, 0, 3, 0, 4, 0, 0, 0, 0, 192, 0, 2, 33])
     check parseIpv6("64:ff9b::192.0.2.33") == Ipv6([0'u8, 100, 255, 155, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 2, 33])
-  
+
   test "isIpv6AndStore":
     var sipv6: Ipv6
 
@@ -86,7 +86,7 @@ suite "IPv6 tests":
     check isIpv6AndStore("::1.2.3.4.5", sipv6) == false
     check isIpv6AndStore("::-1.-2.-3.-4", sipv6) == false
     check isIpv6AndStore("::a.b.c.d", sipv6) == false
-  
+
   test "isIpv6":
     check isIpv6("::") == true
     check isIpv6("::8") == true

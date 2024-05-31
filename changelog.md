@@ -1,3 +1,7 @@
+# v0.2.2 - 2024-05-31
+- Replacing deprecated `delete()`.
+- Optimizations in `iputils.cidr.rangeToCidr8()`.
+
 # v0.2.1 - 2022-03-22
 - Added `iputils.cidr.contains()` to check if a given `ip` (IPv4 or IPv6) is in a `cidr` (Cidr4 or Cidr6).
 

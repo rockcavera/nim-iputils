@@ -15,7 +15,7 @@ when defined(UseStdNetParseIpAddress):
       raise newException(ValueError, "Invalid IPv4.")
 
     result = r.address_v4
-    
+
 else:
   proc parseIpv4*(ip: string): Ipv4 =
     ## Parses a IPv4 value contained in ``ip``.
@@ -23,13 +23,13 @@ else:
       b = 0
       x = 0
       empty = true
-    
+
     for c in ip:
       if c in {'0' .. '9'}:
         b = b * 10 + (ord(c) - ord('0'))
 
         empty = false
-        
+
       elif '.' == c:
         if empty or b > 255:
           raise newException(ValueError, "Invalid IPv4.")
@@ -47,7 +47,7 @@ else:
 
       else:
         raise newException(ValueError, "Invalid IPv4.")
-    
+
     if x != 3 or empty or b > 255:
       raise newException(ValueError, "Invalid IPv4.")
 
@@ -57,7 +57,7 @@ proc isIpv4AndStore*(ip: string, stored: var Ipv4): bool =
   ## Returns ``true`` if the value of ``ip`` is a valid IPv4 and store the value into ``stored``.
   try:
     stored = parseIpv4(ip)
-    
+
     return true
 
   except:
@@ -80,11 +80,11 @@ proc uint32ToIpv4*(ip: uint32): Ipv4 {.inline.} =
 proc ipv4ToString*(ip: Ipv4): string =
   ## Returns an IPv4 textual representation of an ``ip``.
   result = newStringOfCap(15)
-  
+
   for i in 0 .. 2:
     add(result, $ip[i])
     add(result, ".")
-  
+
   add(result, $ip[3])
 
 proc `$`*(ip: Ipv4): string =
