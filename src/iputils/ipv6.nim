@@ -35,7 +35,7 @@ else:
       x = 0
       i = 0
       iNullPart = -1
-    
+
     block outMainLoop:
       while a < ipLength:
         let c = ip[a]
@@ -60,10 +60,10 @@ else:
                 raise newException(ValueError, "Invalid IPv6.")
               else:
                 iNullPart = i
-                
+
                 if a == (ipLength - 1):
                   inc(a)
-                  
+
                   break
             elif ':' == ip[1]:
               iNullPart = i
@@ -86,7 +86,7 @@ else:
             x = 0
 
           inc(a)
-        
+
           if i > 14:
             raise newException(ValueError, "Invalid IPv6.")
 
@@ -94,10 +94,10 @@ else:
         of '.':
           if 0 == x or b > 597 or i < 2:
             raise newException(ValueError, "Invalid IPv6.")
-          
+
           if b > 9:
             b = ((((b and 768) shr 8) * 10) + ((b and 240) shr 4)) * 10 + (b and 15)
-          
+
           result[i] = uint8(b)
 
           inc(i)
@@ -115,7 +115,7 @@ else:
             of {'0' .. '9'}:
               b = b * 10 + (ord(c2) - ord('0'))
 
-              inc(x) 
+              inc(x)
             of '.':
               if x == 0 or b > 255:
                 raise newException(ValueError, "Invalid IPv4.")
@@ -134,14 +134,14 @@ else:
               raise newException(ValueError, "Invalid IPv4.")
 
             inc(a)
-          
+
           if ipv4Parts != 3 or x == 0 or b > 255:
             raise newException(ValueError, "Invalid IPv4.")
 
           result[i] = uint8(b)
 
           inc(i)
-          
+
           break outMainLoop
 
         else:
@@ -151,13 +151,13 @@ else:
           raise newException(ValueError, "Invalid IPv6.")
 
         inc(a)
-    
+
       if 0 == x:
         if iNullPart > -1 and ':' == ip[a - 2]:
           inc(i, 2)
         else:
           raise newException(ValueError, "Invalid IPv6.")
-      
+
       else:
         result[i] = uint8((b and 65280) shr 8)
 
@@ -166,7 +166,7 @@ else:
         result[i] = uint8(b and 255)
 
         inc(i)
-    
+
     if i > 16:
       raise newException(ValueError, "Invalid IPv6.")
     elif i < 16:
@@ -195,7 +195,7 @@ proc isIpv6AndStore*(ip: string, stored: var Ipv6): bool =
   ## Returns ``true`` if the value of ``ip`` is a valid IPv6 and store the value into ``stored``.
   try:
     stored = parseIpv6(ip)
-    
+
     return true
 
   except:
@@ -234,7 +234,7 @@ proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = Ipv6Compressed): string =
 
         if -1 == groupZeros.ii:
           groupZeros.ii = high(result)
-        
+
         inc(groupZeros.count)
       else:
         groupZeros = (ii: -1, fi: -1, count: 0)
@@ -254,27 +254,27 @@ proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = Ipv6Compressed): string =
             leadingZeros = false
 
           mask = mask shr 4
-      
+
       if i < 14:
         add(result, ':')
-      
+
       if groupZeros.count > bestGroupZeros.count:
         groupZeros.fi = high(result)
         bestGroupZeros = groupZeros
-    
+
     if 8 == bestGroupZeros.count:
       result = "::"
     elif bestGroupZeros.count > 1:
-      
+
       if bestGroupZeros.ii == 0:
         result[0] = ':'
 
-        delete(result, 1, bestGroupZeros.fi - 1)
+        delete(result, 1 .. (bestGroupZeros.fi - 1))
       else:
         result[bestGroupZeros.ii] = ':'
 
-        delete(result, bestGroupZeros.ii + 1, bestGroupZeros.fi)
-  
+        delete(result, (bestGroupZeros.ii + 1) .. bestGroupZeros.fi)
+
   of Ipv6LeadingZeros:
     for i in countup(0, 14, 2):
       let group = (uint16(ip[i]) shl 8) or uint16(ip[i + 1])
@@ -297,7 +297,7 @@ proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = Ipv6Compressed): string =
             leadingZeros = false
 
           mask = mask shr 4
-      
+
       if i < 14:
         add(result, ':')
 
@@ -311,7 +311,7 @@ proc ipv6ToString*(ip: Ipv6, mode: Ipv6Mode = Ipv6Compressed): string =
         add(result, hexDigits[(group and mask) shr (i * 4)])
 
         mask = mask shr 4
-      
+
       if i < 14:
         add(result, ':')
 
